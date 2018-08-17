@@ -154,20 +154,19 @@ def create_user():
 
 
 def add_user(new_user):
-    conn = sqlite3.connect('mydb.db')
-    print("connect ok")
-    cursor = conn.execute("select id from users where username=? or emailid=?",
-                          (new_user['username'], new_user['email']))
-    data = cursor.fetchall()
-    if len(data) != 0:
-        abort(409)
+    api_list=[]
+    print(new_user)
+    db = connection.cloud_native.users
+    user = db.find({'$or':[{"username":new_user['username']}, {"email":new_user['email']}]})
+    for i in user:
+        print(str(i))
+        api_list.append(str(i))
+
+    if api_list == []:
+        db.insert(new_user)
+        return "Succes"
     else:
-        cursor.execute("insert into users(username, emailid, password, full_name) values(?, ?, ?, ?)",
-                       (new_user['username'], new_user['email'], new_user['password'], new_user['name']))
-        conn.commit()
-        return "Success"
-    conn.close()
-    return jsonify(data)
+        abort(409)
 
 
 @app.route('/api/v1/users', methods=['DELETE'])
