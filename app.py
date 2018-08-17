@@ -133,22 +133,19 @@ def invalid_request3(error):
 
 from flask import request, abort
 
+import random
 
 @app.route('/api/v1/users', methods=['POST'])
 def create_user():
-    if not request.json:
+    if not request.json or not 'username' in request.json or not \
+        'email' in request.json or not 'password' in request.json:
         abort(400)
-    if not 'username' in request.json:
-        abort(401)
-    if not 'email' in request.json:
-        abort(402)
-    if not 'password' in request.json:
-        abort(403)
     user = {
         'username': request.json['username'],
         'email': request.json['email'],
         'name': request.json['name'],
-        'password': request.json['password']
+        'password': request.json['password'],
+        'id': random.randint(1, 1000)
     }
     return jsonify({'status': add_user(user)}), 201
 
@@ -178,53 +175,38 @@ def delete_user():
 
 
 def del_user(del_user):
-    conn = sqlite3.connect('mydb.db')
-    print("connect ok")
-    print(del_user)
-    cursor = conn.execute("select id from users where username=?", (del_user,))
-    data = cursor.fetchall()
-    print("Data", data)
-    if len(data) == 0:
+    db = connection.cloud_native.users
+    api_list = []
+    for i in db.find({'username':del_user}):
+        api_list.append(str(i))
+    if api_list == []:
         abort(404)
     else:
-        cursor.execute("delete from users where username = ?", (del_user,))
-        conn.commit()
-        return "Success"
-    conn.close()
-
+        db.remove({'username':del_user})
+        return "Succes"
 
 @app.route('/api/v1/users/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
+    print(user_id)
     user = {}
-    if not request.json:
-        abort(400)
     user['id'] = user_id
     key_list = request.json.keys()
     for i in key_list:
         user[i] = request.json[i]
-    print(user)
     return jsonify({'status': upd_user(user)}), 200
 
-
 def upd_user(user):
-    conn = sqlite3.connect('mydb.db')
-    print("Opened database successfully")
-    cursor = conn.cursor()
-    cursor.execute("SELECT * from users where id=? ", (user['id'],))
-    data = cursor.fetchall()
-    print(data)
-    if len(data) == 0:
-        abort(404)
+    api_list=[]
+    print(user)
+    db_user = connection.cloud_native.users
+    users = db_user.find_one({"id":user['id']})
+    for i in users:
+        api_list.append(str(i))
+    if api_list == []:
+        abort(409)
     else:
-        key_list = user.keys()
-    for i in key_list:
-        if i != "id":
-            print(user, i)
-            # cursor.execute("UPDATE users set {0}=? where id=? ", (i, user[i], user['id']))
-            cursor.execute("""UPDATE users SET {0} = ? WHERE id = ?""".format(
-                i), (user[i], user['id']))
-            conn.commit()
-    return "Success"
+        db_user.update({'id':user['id']},{'$set': user},upsert=False)
+        return "Succes"
 
 
 @app.route('/api/v2/tweets', methods=['GET'])
@@ -233,34 +215,11 @@ def get_tweets():
 
 
 def list_tweets():
-    conn = sqlite3.connect('mydb.db')
-    print("connect ok")
     api_list = []
-    cursor = conn.cursor()
-    cookie_user_name = request.cookies.get('cookie_name2')
-    if cookie_user_name != None:
-        print(str(cookie_user_name))
-        cursor.execute(
-            "select username, body, tweet_time, id from tweets where username = ?", (str(cookie_user_name),))
-    else:
-        cursor.execute("select username, body, tweet_time, id from tweets")
-    data = cursor.fetchall()
-    if data != 0:
-        for row in data:
-            tweets = {}
-            tweets['Tweetby'] = row[0]
-            tweets['Body'] = row[1]
-            tweets['Timestamp'] = row[2]
-            tweets['id'] = row[3]
-
-            api_list.append(tweets)
-
-    else:
-        return api_list
-    conn.close()
-    # return jsonify(qwe, 200)
+    db = connection.cloud_native.tweets
+    for row in db.find():
+        api_list.append(str(row))
     return jsonify({'tweets_list': api_list})
-
 
 import time
 
@@ -270,7 +229,8 @@ def add_tweets():
     user_tweet = {}
     if not request.json or not 'username' in request.json or not 'Body' in request.json:
         abort(400)
-    user_tweet['username'] = request.json['username']
+    user_tweet['id'] = request.json['id']
+    user_tweet['tweetedby'] = request.json['username']
     user_tweet['body'] = request.json['Body']
     user_tweet['created_at'] = time.strftime(
         "%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -279,20 +239,20 @@ def add_tweets():
 
 
 def add_tweet(new_tweets):
-    conn = sqlite3.connect('mydb.db')
-    print("Opened database successfully")
-    cursor = conn.cursor()
-    cursor.execute("SELECT * from users where username=? ",
-                   (new_tweets['username'],))
-    data = cursor.fetchall()
-    if len(data) == 0:
-        abort(404)
+    api_list = []
+    db_users = connection.cloud_native.users
+    db_tweets = connection.cloud_native.tweets
+    print(new_tweets)
+    users = db_users.find({"username":new_tweets['tweetedby']})
+    for user in users:
+        api_list.append(str(user))
+    if api_list == []:
+        abort(400)
     else:
-        cursor.execute("INSERT into tweets (username, body, tweet_time) values(?,?,?)",
-                       (new_tweets['username'], new_tweets['body'], new_tweets['created_at']))
-    conn.commit()
-    return jsonify({'username': new_tweets['username'], 'Body': new_tweets['body']}), 200
+        db_tweets.insert(new_tweets)
+        return "Succes"
 
+#sdfsd
 
 @app.route('/api/v2/tweets/<int:id>', methods=['GET'])
 def get_tweet(id):
@@ -300,23 +260,15 @@ def get_tweet(id):
 
 
 def list_tweet(user_id):
-    print(user_id)
-    conn = sqlite3.connect('mydb.db')
-    print("Opened database successfully")
-    cursor = conn.cursor()
-    cursor.execute("SELECT * from tweets where id=?", (user_id,))
-    data = cursor.fetchall()
-    print(data)
-    if len(data) == 0:
+    db = connection.cloud_native.tweets
+    api_list = []
+    tweets = db.find({'id':user_id})
+    for tweet in tweets:
+        api_list.append(str(tweet))
+    if api_list == []:
         abort(404)
     else:
-        user = {}
-        user['id'] = data[0][0]
-        user['username'] = data[0][1]
-        user['body'] = data[0][2]
-        user['tweet_time'] = data[0][3]
-    conn.close()
-    return jsonify(user)
+        return jsonify({"tweet":api_list})
 
 
 from flask import render_template, make_response, url_for, request, redirect, session
