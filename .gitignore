@@ -5,3 +5,4 @@ lib
 share
 pip-selfcheck.json
 CNP
+node_modules/
