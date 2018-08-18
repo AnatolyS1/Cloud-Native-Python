@@ -45,7 +45,7 @@
 /*!************************!*\
   !*** ./static/main.js ***!
   \************************/
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	"use strict";
 	
@@ -91,12 +91,12 @@
 	};
 	$(documentReady);
 
-/***/ },
+/***/ }),
 /* 1 */
 /*!************************************!*\
   !*** ./static/components/Tweet.js ***!
   \************************************/
-/***/ function(module, exports) {
+/***/ (function(module, exports) {
 
 	"use strict";
 	
@@ -160,6 +160,6 @@
 	
 	exports.default = Tweet;
 
-/***/ }
+/***/ })
 /******/ ]);
 //# sourceMappingURL=bundle.js.map
