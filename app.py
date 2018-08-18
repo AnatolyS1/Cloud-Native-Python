@@ -322,6 +322,9 @@ def cookie_insertion():
     response.set_cookie('cookie_name2', value='qwqwqw')
     return response
 
+@app.route('/index')
+def index():
+    return render_template('index.html')
 
 if __name__ == "__main__":
     create_mongodatabase()
